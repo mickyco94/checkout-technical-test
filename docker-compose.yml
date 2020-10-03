@@ -1,0 +1,25 @@
+# docker-compose.yml
+version: "2"
+
+services:
+  mockbank:
+    build:
+      context: .
+      dockerfile: ./tools/MockBank.API/Dockerfile
+    ports:
+      - "5002:80"
+  gateway:
+    build:
+      context: .
+      dockerfile: ./src/Checkout.Gateway.API/Dockerfile
+    depends_on:
+      - mockbank
+    ports:
+      - "5001:80"
+  # sqldb:
+  #   image: mcr.microsoft.com/mssql/server:2017-latest
+  #   environment:
+  #     - SA_PASSWORD=Pass@word
+  #     - ACCEPT_EULA=Y
+  #   ports:
+  #     - "5434:1433"
