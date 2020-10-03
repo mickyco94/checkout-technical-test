@@ -9,9 +9,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4DB39122-392
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EE8EAC99-58E6-4B7B-91BF-0C4BE4DE462B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MockBank.API", "tools\MockBank.API\MockBank.API.csproj", "{78BD060B-79A3-4EC6-B181-85901E09E7C1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MockBank.API", "tools\MockBank.API\MockBank.API.csproj", "{78BD060B-79A3-4EC6-B181-85901E09E7C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Checkout.Gateway.API", "src\Checkout.Gateway.API\Checkout.Gateway.API.csproj", "{7BD808C6-F520-41D3-BDD5-E1EDF427001E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Checkout.Gateway.API", "src\Checkout.Gateway.API\Checkout.Gateway.API.csproj", "{7BD808C6-F520-41D3-BDD5-E1EDF427001E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MockBank.API.Client", "tools\MockBank.API.Client\MockBank.API.Client.csproj", "{AE7D7F17-38E2-4232-9236-4E76CE904692}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,6 +49,18 @@ Global
 		{7BD808C6-F520-41D3-BDD5-E1EDF427001E}.Release|x64.Build.0 = Release|Any CPU
 		{7BD808C6-F520-41D3-BDD5-E1EDF427001E}.Release|x86.ActiveCfg = Release|Any CPU
 		{7BD808C6-F520-41D3-BDD5-E1EDF427001E}.Release|x86.Build.0 = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|x64.Build.0 = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Debug|x86.Build.0 = Debug|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|x64.ActiveCfg = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|x64.Build.0 = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|x86.ActiveCfg = Release|Any CPU
+		{AE7D7F17-38E2-4232-9236-4E76CE904692}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -54,6 +68,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{78BD060B-79A3-4EC6-B181-85901E09E7C1} = {F21873DA-1833-4E18-B49D-3F9D9837926C}
 		{7BD808C6-F520-41D3-BDD5-E1EDF427001E} = {4DB39122-392C-49D3-B021-59481EF386E7}
+		{AE7D7F17-38E2-4232-9236-4E76CE904692} = {F21873DA-1833-4E18-B49D-3F9D9837926C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DAC0AD95-5B56-415C-B522-B3584290DD6E}

@@ -9,6 +9,8 @@ services:
     ports:
       - "5002:80"
   gateway:
+    environment:
+      MockBankApiUrl: "http://mockbank/"
     build:
       context: .
       dockerfile: ./src/Checkout.Gateway.API/Dockerfile
