@@ -12,7 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\tools\MockBank.API.Client\MockBank.API.Client.csproj" />
+    <ProjectReference Include="..\Checkout.Gateway.Service\Checkout.Gateway.Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="V1\Models\" />
   </ItemGroup>
 
 

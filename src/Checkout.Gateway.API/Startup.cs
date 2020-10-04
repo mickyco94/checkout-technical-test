@@ -1,12 +1,12 @@
+using Checkout.Gateway.Service;
+using Checkout.Gateway.Utilities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using MockBank.API.Client;
 using Serilog;
-using System;
 
 namespace Checkout.Gateway.API
 {
@@ -22,10 +22,9 @@ namespace Checkout.Gateway.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddMockBankApiClient(o =>
-            {
-                o.BaseAddress = new Uri(Configuration["MockBankApiUrl"]);
-            });
+            services.AddServiceLayer(Configuration);
+
+            services.AddUtilities();
 
             services.AddSwaggerGen();
 

@@ -1,7 +1,7 @@
-﻿using Checkout.Gateway.API.V1.Models;
+﻿using Checkout.Gateway.Service.Commands.CreatePayment;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Threading.Tasks;
 
 namespace Checkout.Gateway.API.V1.Controllers
@@ -11,6 +11,13 @@ namespace Checkout.Gateway.API.V1.Controllers
     [Route("v{version:apiVersion}/[controller]")]
     public class PaymentController : ControllerBase
     {
+        private readonly IMediator _mediator;
+
+        public PaymentController(IMediator mediator)
+        {
+            _mediator = mediator;
+        }
+
         /// <summary>
         /// Processes the specified payment returning the Id corresponding to the payment in the Checkout system if successful
         /// </summary>
@@ -20,10 +27,9 @@ namespace Checkout.Gateway.API.V1.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePaymentRequest(CreatePaymentRequest request)
         {
-            return Ok(new CreatePaymentResponse
-            {
-                PaymentId = Guid.NewGuid().ToString()
-            });
+            var res = await _mediator.Send(request);
+
+            return StatusCode(res.StatusCode, res.Success() ? (object)res.SuccessResponse : res.ErrorResponse);
         }
     }
 }

@@ -1,6 +1,9 @@
-﻿namespace Checkout.Gateway.API.V1.Models
+﻿using Checkout.Gateway.Utilities;
+using MediatR;
+
+namespace Checkout.Gateway.Service.Commands.CreatePayment
 {
-    public class CreatePaymentRequest
+    public class CreatePaymentRequest : IRequest<ApiResponse<CreatePaymentResponse>>
     {
         public PaymentSource Source { get; set; }
         public PaymentRecipient Recipient { get; set; }
