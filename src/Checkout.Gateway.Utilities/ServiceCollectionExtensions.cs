@@ -11,6 +11,7 @@ namespace Checkout.Gateway.Utilities
             services.AddSingleton<IGuid, GuidHelper>();
             services.AddSingleton<ICardExpiryValidator, CardExpiryValidator>();
             services.AddScoped<ICurrencyValidator, CurrencyValidator>();
+            services.AddSingleton<ICardNumberValidator, CardNumberValidator>();
 
             return services;
         }
