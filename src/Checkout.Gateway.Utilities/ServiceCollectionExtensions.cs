@@ -10,6 +10,7 @@ namespace Checkout.Gateway.Utilities
             services.AddSingleton<IDateTime, DateTimeHelper>();
             services.AddSingleton<IGuid, GuidHelper>();
             services.AddSingleton<ICardExpiryValidator, CardExpiryValidator>();
+            services.AddScoped<ICurrencyValidator, CurrencyValidator>();
 
             return services;
         }
