@@ -40,6 +40,11 @@ namespace MockBank.API.Controllers
                 return UnprocessableEntity(TransferBankFundsErrorResponse.ThreeDSecureRequired);
             }
 
+            if (randomValue < 1)
+            {
+                return StatusCode(500);
+            }
+
             return UnprocessableEntity(TransferBankFundsErrorResponse.InsufficientFunds);
         }
     }

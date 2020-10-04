@@ -1,5 +1,7 @@
 ﻿using MockBank.API.Client.Models;
 using Newtonsoft.Json;
+using System;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,6 +21,18 @@ namespace MockBank.API.Client
 
         public async Task<TransferFundsResponse> TransferFunds(TransferFundsRequest request)
         {
+            try
+            {
+                return await TransferFundsResponseInternal(request);
+            }
+            catch (Exception e)
+            {
+                return TransferFundsResponse.ExceptionResponse(e);
+            }
+        }
+
+        private async Task<TransferFundsResponse> TransferFundsResponseInternal(TransferFundsRequest request)
+        {
             var response = await _httpClient.PostAsync(
                 "api/payment",
                 new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json"));
@@ -27,40 +41,19 @@ namespace MockBank.API.Client
 
             if (!response.IsSuccessStatusCode)
             {
-                return HandleFailedResponse((int)response.StatusCode, responseBody);
+                if (response.StatusCode == (HttpStatusCode)HttpStatusCodeUnprocessableEntity)
+                {
+                    return TransferFundsResponse.Error((int)response.StatusCode, JsonConvert.DeserializeObject<TransferFundsErrorResponse>(responseBody));
+                }
+                else
+                {
+                    return TransferFundsResponse.UnknownError((int)response.StatusCode);
+                }
             }
 
             var deserialized = JsonConvert.DeserializeObject<TransferFundsSuccessfulResponse>(responseBody);
 
-            return new TransferFundsResponse
-            {
-                Success = true,
-                ErrorResponse = null,
-                SuccessResponse = deserialized,
-                StatusCode = (int)response.StatusCode
-            };
-        }
-
-        private static TransferFundsResponse HandleFailedResponse(int statusCode, string body)
-        {
-            if (statusCode == HttpStatusCodeUnprocessableEntity)
-            {
-                return new TransferFundsResponse
-                {
-                    ErrorResponse = JsonConvert.DeserializeObject<TransferFundsErrorResponse>(body),
-                    StatusCode = statusCode,
-                    Success = false,
-                    SuccessResponse = null
-                };
-            }
-
-            return new TransferFundsResponse
-            {
-                ErrorResponse = null,
-                StatusCode = statusCode,
-                Success = false,
-                SuccessResponse = null
-            };
+            return TransferFundsResponse.Successful(deserialized);
         }
     }
 }
