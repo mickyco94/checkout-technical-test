@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Checkout.Gateway.Utilities.Validators;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkout.Gateway.Utilities
 {
@@ -8,6 +9,8 @@ namespace Checkout.Gateway.Utilities
         {
             services.AddSingleton<IDateTime, DateTimeHelper>();
             services.AddSingleton<IGuid, GuidHelper>();
+            services.AddSingleton<ICardExpiryValidator, CardExpiryValidator>();
+
             return services;
         }
     }
