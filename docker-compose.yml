@@ -5,7 +5,7 @@ services:
   mockbank:
     build:
       context: .
-      dockerfile: ./tools/MockBank.API/Dockerfile
+      dockerfile: Dockerfile.MockBank
     ports:
       - "5002:80"
   gateway:
@@ -13,7 +13,7 @@ services:
       MockBankApiUrl: "http://mockbank/"
     build:
       context: .
-      dockerfile: ./src/Checkout.Gateway.API/Dockerfile
+      dockerfile: Dockerfile.Gateway
     depends_on:
       - mockbank
     ports:
