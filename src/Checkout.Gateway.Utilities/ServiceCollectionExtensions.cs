@@ -1,4 +1,5 @@
-﻿using Checkout.Gateway.Utilities.Validators;
+﻿using Checkout.Gateway.Utilities.Regex;
+using Checkout.Gateway.Utilities.Validators;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Checkout.Gateway.Utilities
@@ -10,8 +11,12 @@ namespace Checkout.Gateway.Utilities
             services.AddSingleton<IDateTime, DateTimeHelper>();
             services.AddSingleton<IGuid, GuidHelper>();
             services.AddSingleton<ICardExpiryValidator, CardExpiryValidator>();
-            services.AddScoped<ICurrencyValidator, CurrencyValidator>();
             services.AddSingleton<ICardNumberValidator, CardNumberValidator>();
+            services.AddSingleton<ISortCodeRegex, SortCodeRegex>();
+            services.AddSingleton<IAccountNumberRegex, AccountNumberRegex>();
+            services.AddSingleton<ICvvRegex, CvvRegex>();
+
+            services.AddScoped<ICurrencyValidator, CurrencyValidator>();
 
             return services;
         }
