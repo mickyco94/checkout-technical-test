@@ -23,6 +23,7 @@ namespace Checkout.Gateway.API.V1.Controllers
         /// </summary>
         /// <param name="request"></param>
         /// <returns></returns>
+        [IdempotencyFilter]
         [ProducesResponseType(typeof(CreatePaymentResponse), StatusCodes.Status200OK)]
         [HttpPost]
         public async Task<IActionResult> CreatePaymentRequest(CreatePaymentRequest request)
