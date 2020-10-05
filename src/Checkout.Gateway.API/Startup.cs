@@ -34,12 +34,14 @@ namespace Checkout.Gateway.API
                 options.SubstituteApiVersionInUrl = true;
             });
 
+            services.AddValidatorsFromAssemblyContaining(typeof(CreatePaymentValidator));
+
             services.AddApiVersioning(options =>
             {
                 options.ReportApiVersions = true;
             });
 
-            services.AddControllers();
+            services.AddControllers().AddFluentValidation(o => o.RegisterValidatorsFromAssemblyContaining<CreatePaymentValidator>());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
