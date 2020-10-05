@@ -1,4 +1,6 @@
-﻿using Checkout.Gateway.Utilities;
+﻿using Checkout.Gateway.Data.Models;
+using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
+using Checkout.Gateway.Utilities;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -13,16 +15,19 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
     {
         private readonly ILogger<CreatePaymentHandler> _logger;
         private readonly IMockBankApiClient _mockBankApiClient;
-        private readonly IGuid _guid;
+        private readonly IMediator _mediator;
+        private readonly IMerchantContext _merchantContext;
 
         public CreatePaymentHandler(
             ILogger<CreatePaymentHandler> logger,
             IMockBankApiClient mockBankApiClient,
-            IGuid guid)
+            IMediator mediator,
+            IMerchantContext merchantContext)
         {
             _logger = logger;
             _mockBankApiClient = mockBankApiClient;
-            _guid = guid;
+            _mediator = mediator;
+            _merchantContext = merchantContext;
         }
 
         public async Task<ApiResponse<CreatePaymentResponse>> Handle(
@@ -34,9 +39,9 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
             switch (mockBankResponse.StatusCode)
             {
                 case StatusCodes.Status200OK:
-                    return HandlePaymentSuccessful(mockBankResponse, request);
+                    return await HandlePaymentSuccessful(mockBankResponse, request);
                 case StatusCodes.Status422UnprocessableEntity:
-                    return HandlePaymentRejected(mockBankResponse, request);
+                    return HandlePaymentRejected(request);
                 default:
                     return HandleUnknownBankResponse(mockBankResponse);
             }
@@ -70,23 +75,47 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
             return ApiResponse<CreatePaymentResponse>.Fail(StatusCodes.Status502BadGateway, "ERR_DEP_FAIL", "A dependency has failed, your payment has not been processed. Please try again");
         }
 
-        private ApiResponse<CreatePaymentResponse> HandlePaymentRejected(TransferFundsResponse mockBankResponse,
-            CreatePaymentRequest request)
+        private ApiResponse<CreatePaymentResponse> HandlePaymentRejected(CreatePaymentRequest request)
         {
             return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status201Created, new CreatePaymentResponse
             {
                 Status = PaymentStatus.Rejected,
-                PaymentId = _guid.NewGuid().ToString()
+                PaymentId = ""
             });
         }
 
-        private ApiResponse<CreatePaymentResponse> HandlePaymentSuccessful(TransferFundsResponse mockBankResponse,
+        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentSuccessful(TransferFundsResponse mockBankResponse,
             CreatePaymentRequest request)
         {
+            var res = await _mediator.Send(new ProcessSuccessfulPaymentRequest
+            {
+                Source = new ProcessSuccessfulPaymentRequest.PaymentSource
+                {
+                    Cvv = request.Source.Cvv,
+                    CardExpiry = request.Source.CardExpiry,
+                    CardNumber = request.Source.CardNumber,
+                },
+                Recipient = new ProcessSuccessfulPaymentRequest.PaymentRecipient
+                {
+                    SortCode = request.Recipient.SortCode,
+                    AccountNumber = request.Recipient.AccountNumber
+                },
+                Currency = request.Currency,
+                Amount = request.Amount,
+                Merchant = new ProcessSuccessfulPaymentRequest.MerchantDetails
+                {
+                    Id = _merchantContext.GetMerchantId(),
+                },
+                BankResponse = new ProcessSuccessfulPaymentRequest.BankPaymentResponse
+                {
+                    TransactionId = mockBankResponse.SuccessResponse.Id.ToString()
+                }
+            });
+
             return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status201Created, new CreatePaymentResponse
             {
                 Status = PaymentStatus.Succeeded,
-                PaymentId = _guid.NewGuid().ToString()
+                PaymentId = res.Id
             });
         }
     }

@@ -1,15 +1,17 @@
 ﻿using AutoFixture;
+using Checkout.Gateway.Data.Models;
 using Checkout.Gateway.Service.Commands.CreatePayment;
-using Checkout.Gateway.Utilities;
+using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
 using FluentAssertions;
 using FluentAssertions.Primitives;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using MockBank.API.Client;
 using MockBank.API.Client.Models;
 using Moq;
 using NUnit.Framework;
-using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Checkout.Gateway.Service.Tests.Commands
@@ -20,11 +22,12 @@ namespace Checkout.Gateway.Service.Tests.Commands
         private MockRepository _mockRepository;
         private IFixture _fixture;
 
-        private CreatePaymentHandler _createPaymentHandler;
-
-        private Mock<IGuid> _guid;
         private Mock<ILogger<CreatePaymentHandler>> _logger;
         private Mock<IMockBankApiClient> _mockBankApiClient;
+        private Mock<IMediator> _mediator;
+        private Mock<IMerchantContext> _merchantContext;
+
+        private CreatePaymentHandler _createPaymentHandler;
 
         [SetUp]
         public void SetUp()
@@ -32,26 +35,33 @@ namespace Checkout.Gateway.Service.Tests.Commands
             // Boilerplate
             _mockRepository = new MockRepository(MockBehavior.Strict);
             _fixture = new Fixture();
-            _fixture.Behaviors.Add(new OmitOnRecursionBehavior(1));
 
-            _guid = _mockRepository.Create<IGuid>();
+            // Mock setup
             _logger = _mockRepository.Create<ILogger<CreatePaymentHandler>>(MockBehavior.Loose);
             _mockBankApiClient = _mockRepository.Create<IMockBankApiClient>();
+            _mediator = _mockRepository.Create<IMediator>();
+            _merchantContext = _mockRepository.Create<IMerchantContext>();
 
             // Mock default
             SetupMockDefaults();
 
             // Sut instantiation
-            _createPaymentHandler = new CreatePaymentHandler(_logger.Object,
+            _createPaymentHandler = new CreatePaymentHandler(
+                _logger.Object,
                 _mockBankApiClient.Object,
-                _guid.Object);
+                _mediator.Object,
+                _merchantContext.Object
+            );
         }
-
         private void SetupMockDefaults()
         {
-            _guid
-                .Setup(x => x.NewGuid())
-                .Returns(Guid.NewGuid);
+            _mediator
+                .Setup(x => x.Send(It.IsAny<ProcessSuccessfulPaymentRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(_fixture.Create<ProcessSuccessfulPaymentResponse>());
+
+            _merchantContext
+                .Setup(x => x.GetMerchantId())
+                .Returns(_fixture.Create<string>());
 
             _mockBankApiClient
                 .Setup(x => x.TransferFunds(It.IsAny<TransferFundsRequest>()))
@@ -59,9 +69,15 @@ namespace Checkout.Gateway.Service.Tests.Commands
         }
 
         [Test]
-        public async Task Handle_BankResponseSuccessful_ReturnsSuccessStatus()
+        public async Task Handle_BankResponseSuccessful_ReturnsExpectedSuccessResponse()
         {
             //arrange
+            var processSuccessfulPaymentResponse = _fixture.Create<ProcessSuccessfulPaymentResponse>();
+
+            _mediator
+                .Setup(x => x.Send(It.IsAny<ProcessSuccessfulPaymentRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(processSuccessfulPaymentResponse);
+
             _mockBankApiClient
                 .Setup(x => x.TransferFunds(It.IsAny<TransferFundsRequest>()))
                 .ReturnsAsync(TransferFundsResponse.Successful(_fixture.Create<TransferFundsSuccessfulResponse>()));
@@ -72,6 +88,55 @@ namespace Checkout.Gateway.Service.Tests.Commands
             //assert
             res.StatusCode.Should().Be(StatusCodes.Status201Created);
             res.SuccessResponse.Status.Should().Be(PaymentStatus.Succeeded);
+            res.SuccessResponse.PaymentId.Should().Be(processSuccessfulPaymentResponse.Id);
+        }
+
+        [Test]
+        public async Task Handle_BankResponseSuccessful_SendsProcessSuccessfulPaymentRequest()
+        {
+            //arrange
+            var merchantId = _fixture.Create<string>();
+
+            _merchantContext.Setup(x => x.GetMerchantId()).Returns(merchantId);
+
+            var successfulTransferResponse = _fixture.Create<TransferFundsSuccessfulResponse>();
+
+            _mockBankApiClient
+                .Setup(x => x.TransferFunds(It.IsAny<TransferFundsRequest>()))
+                .ReturnsAsync(TransferFundsResponse.Successful(successfulTransferResponse));
+
+            var request = _fixture.Create<CreatePaymentRequest>();
+
+            var expected = new ProcessSuccessfulPaymentRequest
+            {
+                Source = new ProcessSuccessfulPaymentRequest.PaymentSource
+                {
+                    Cvv = request.Source.Cvv,
+                    CardExpiry = request.Source.CardExpiry,
+                    CardNumber = request.Source.CardNumber,
+                },
+                Recipient = new ProcessSuccessfulPaymentRequest.PaymentRecipient
+                {
+                    SortCode = request.Recipient.SortCode,
+                    AccountNumber = request.Recipient.AccountNumber
+                },
+                Currency = request.Currency,
+                Amount = request.Amount,
+                Merchant = new ProcessSuccessfulPaymentRequest.MerchantDetails
+                {
+                    Id = merchantId,
+                },
+                BankResponse = new ProcessSuccessfulPaymentRequest.BankPaymentResponse
+                {
+                    TransactionId = successfulTransferResponse.Id.ToString()
+                }
+            };
+
+            //act
+            await _createPaymentHandler.Handle(request);
+
+            //assert
+            _mediator.Verify(x => x.Send(It.Is<ProcessSuccessfulPaymentRequest>(req => req.Should().BeEquivalentToBool(expected)), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Test]
@@ -148,7 +213,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
                 objectAssertions.Subject.Should().BeEquivalentTo(expected);
                 return true;
             }
-            catch (Exception e)
+            catch
             {
                 return false;
             }
