@@ -1,5 +1,7 @@
-﻿using Checkout.Gateway.Service.Commands.CreatePayment;
+﻿using Checkout.Gateway.API.Filters;
+using Checkout.Gateway.Service.Commands.CreatePayment;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -7,6 +9,7 @@ using System.Threading.Tasks;
 namespace Checkout.Gateway.API.V1.Controllers
 {
     [ApiController]
+    [Authorize]
     [ApiVersion("1.0")]
     [Route("v{version:apiVersion}/[controller]")]
     public class PaymentController : ControllerBase

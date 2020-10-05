@@ -1,5 +1,10 @@
+using Checkout.Gateway.API.Authentication;
+using Checkout.Gateway.Data.Configuration;
 using Checkout.Gateway.Service;
+using Checkout.Gateway.Service.Commands.CreatePayment;
 using Checkout.Gateway.Utilities;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -7,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using System.Collections.Generic;
 
 namespace Checkout.Gateway.API
 {
@@ -26,6 +32,12 @@ namespace Checkout.Gateway.API
 
             services.AddUtilities();
 
+            services.AddData();
+
+            services.AddMemoryCache();
+
+            services.AddHttpContextAccessor();
+
             services.AddSwaggerGen();
 
             services.AddVersionedApiExplorer(options =>
@@ -33,6 +45,14 @@ namespace Checkout.Gateway.API
                 options.GroupNameFormat = "'v'VVV";
                 options.SubstituteApiVersionInUrl = true;
             });
+
+            services.AddAuthentication(AuthenticationConstants.ApiKeyAuthenticationScheme)
+                .AddApiKeyAuthentication(o => o.MerchantKeys = new Dictionary<string, string>
+                {
+                    {"test_key", "amazon"}
+                });
+
+            services.AddAuthorization();
 
             services.AddValidatorsFromAssemblyContaining(typeof(CreatePaymentValidator));
 
@@ -46,9 +66,9 @@ namespace Checkout.Gateway.API
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(
-            IApplicationBuilder app,
-            IWebHostEnvironment env,
-            IApiVersionDescriptionProvider apiVersionDescriptionProvider)
+        IApplicationBuilder app,
+        IWebHostEnvironment env,
+        IApiVersionDescriptionProvider apiVersionDescriptionProvider)
         {
             if (env.IsDevelopment())
             {
@@ -59,8 +79,6 @@ namespace Checkout.Gateway.API
 
             app.UseRouting();
 
-            app.UseAuthorization();
-
             app.UseSwagger();
 
             app.UseSwaggerUI(options =>
@@ -70,6 +88,10 @@ namespace Checkout.Gateway.API
                     options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
                 }
             });
+
+            app.UseAuthentication();
+
+            app.UseAuthorization();
 
             app.UseSerilogRequestLogging();
 
