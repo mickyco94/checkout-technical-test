@@ -14,6 +14,8 @@ namespace Checkout.Gateway.Service
 
             services.AddMediatR(typeof(ServiceCollectionExtensions));
 
+            services.AddScoped<IMerchantContext, MerchantContext>();
+
             return services;
         }
     }
