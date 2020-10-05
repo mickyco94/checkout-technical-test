@@ -1,4 +1,6 @@
-﻿using Checkout.Gateway.Utilities.Regex;
+﻿using Checkout.Gateway.Utilities.Cache;
+using Checkout.Gateway.Utilities.Idempotency;
+using Checkout.Gateway.Utilities.Regex;
 using Checkout.Gateway.Utilities.Validators;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +19,9 @@ namespace Checkout.Gateway.Utilities
             services.AddSingleton<ICvvRegex, CvvRegex>();
 
             services.AddScoped<ICurrencyValidator, CurrencyValidator>();
+            services.AddScoped<IIdempotencyContext, IdempotencyContext>();
+
+            services.AddScoped<ICache, Cache.CacheWrapper>();
 
             return services;
         }
