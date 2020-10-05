@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\tools\MockBank.API.Client\MockBank.API.Client.csproj" />
+    <ProjectReference Include="..\Checkout.Gateway.Data\Checkout.Gateway.Data.csproj" />
     <ProjectReference Include="..\Checkout.Gateway.Utilities\Checkout.Gateway.Utilities.csproj" />
   </ItemGroup>
 
