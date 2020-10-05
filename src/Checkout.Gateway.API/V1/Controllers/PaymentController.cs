@@ -1,5 +1,6 @@
 ﻿using Checkout.Gateway.API.Filters;
 using Checkout.Gateway.Service.Commands.CreatePayment;
+using Checkout.Gateway.Utilities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -28,6 +29,9 @@ namespace Checkout.Gateway.API.V1.Controllers
         /// <returns></returns>
         [IdempotencyFilter]
         [ProducesResponseType(typeof(CreatePaymentResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status502BadGateway)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [HttpPost]
         public async Task<IActionResult> CreatePaymentRequest(CreatePaymentRequest request)
         {
