@@ -1,4 +1,5 @@
 ﻿using Checkout.Gateway.Data.Models;
+using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
 using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
 using Checkout.Gateway.Utilities;
 using MediatR;
@@ -39,9 +40,9 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
             switch (mockBankResponse.StatusCode)
             {
                 case StatusCodes.Status200OK:
-                    return await HandlePaymentSuccessful(mockBankResponse, request);
+                    return await HandlePaymentSuccessful(request, mockBankResponse.SuccessResponse);
                 case StatusCodes.Status422UnprocessableEntity:
-                    return HandlePaymentRejected(request);
+                    return await HandlePaymentRejected(request, mockBankResponse.ErrorResponse);
                 default:
                     return HandleUnknownBankResponse(mockBankResponse);
             }
@@ -75,17 +76,42 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
             return ApiResponse<CreatePaymentResponse>.Fail(StatusCodes.Status502BadGateway, "ERR_DEP_FAIL", "A dependency has failed, your payment has not been processed. Please try again");
         }
 
-        private ApiResponse<CreatePaymentResponse> HandlePaymentRejected(CreatePaymentRequest request)
+        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentRejected(CreatePaymentRequest request, TransferFundsErrorResponse bankErrorResponse)
         {
+            var res = await _mediator.Send(new ProcessRejectedPaymentRequest
+            {
+                Source = new ProcessRejectedPaymentRequest.PaymentSource
+                {
+                    Cvv = request.Source.Cvv,
+                    CardExpiry = request.Source.CardExpiry,
+                    CardNumber = request.Source.CardNumber,
+                },
+                Recipient = new ProcessRejectedPaymentRequest.PaymentRecipient
+                {
+                    SortCode = request.Recipient.SortCode,
+                    AccountNumber = request.Recipient.AccountNumber
+                },
+                Currency = request.Currency,
+                Amount = request.Amount,
+                Merchant = new ProcessRejectedPaymentRequest.MerchantDetails
+                {
+                    Id = _merchantContext.GetMerchantId(),
+                },
+                BankResponse = new ProcessRejectedPaymentRequest.BankPaymentResponse
+                {
+                    FailureReason = bankErrorResponse.Code
+                }
+            });
+
             return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status201Created, new CreatePaymentResponse
             {
                 Status = PaymentStatus.Rejected,
-                PaymentId = ""
+                PaymentId = res.Id
             });
         }
 
-        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentSuccessful(TransferFundsResponse mockBankResponse,
-            CreatePaymentRequest request)
+        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentSuccessful(CreatePaymentRequest request,
+            TransferFundsSuccessfulResponse bankResponse)
         {
             var res = await _mediator.Send(new ProcessSuccessfulPaymentRequest
             {
@@ -108,7 +134,7 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
                 },
                 BankResponse = new ProcessSuccessfulPaymentRequest.BankPaymentResponse
                 {
-                    TransactionId = mockBankResponse.SuccessResponse.Id.ToString()
+                    TransactionId = bankResponse.Id.ToString()
                 }
             });
 

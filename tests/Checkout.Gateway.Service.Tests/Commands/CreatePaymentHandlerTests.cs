@@ -1,6 +1,7 @@
 ﻿using AutoFixture;
 using Checkout.Gateway.Data.Models;
 using Checkout.Gateway.Service.Commands.CreatePayment;
+using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
 using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
 using FluentAssertions;
 using FluentAssertions.Primitives;
@@ -58,6 +59,10 @@ namespace Checkout.Gateway.Service.Tests.Commands
             _mediator
                 .Setup(x => x.Send(It.IsAny<ProcessSuccessfulPaymentRequest>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(_fixture.Create<ProcessSuccessfulPaymentResponse>());
+
+            _mediator
+                .Setup(x => x.Send(It.IsAny<ProcessRejectedPaymentRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(_fixture.Create<ProcessRejectedPaymentResponse>());
 
             _merchantContext
                 .Setup(x => x.GetMerchantId())
@@ -143,6 +148,12 @@ namespace Checkout.Gateway.Service.Tests.Commands
         public async Task Handle_BankResponseRejected_ReturnsRejectedStatus()
         {
             //arrange
+            var processRejectedPaymentResponse = _fixture.Create<ProcessRejectedPaymentResponse>();
+
+            _mediator
+                .Setup(x => x.Send(It.IsAny<ProcessRejectedPaymentRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(processRejectedPaymentResponse);
+
             _mockBankApiClient
                 .Setup(x => x.TransferFunds(It.IsAny<TransferFundsRequest>()))
                 .ReturnsAsync(TransferFundsResponse.Error(422, _fixture.Create<TransferFundsErrorResponse>()));
@@ -153,6 +164,55 @@ namespace Checkout.Gateway.Service.Tests.Commands
             //assert
             res.StatusCode.Should().Be(StatusCodes.Status201Created);
             res.SuccessResponse.Status.Should().Be(PaymentStatus.Rejected);
+            res.SuccessResponse.PaymentId.Should().Be(processRejectedPaymentResponse.Id);
+        }
+
+        [Test]
+        public async Task Handle_BankResponseRejected_SendsProcessRejectedPaymentRequest()
+        {
+            //arrange
+            var merchantId = _fixture.Create<string>();
+
+            _merchantContext.Setup(x => x.GetMerchantId()).Returns(merchantId);
+
+            var transferFundsErrorResponse = _fixture.Create<TransferFundsErrorResponse>();
+
+            _mockBankApiClient
+                .Setup(x => x.TransferFunds(It.IsAny<TransferFundsRequest>()))
+                .ReturnsAsync(TransferFundsResponse.Error(StatusCodes.Status422UnprocessableEntity, transferFundsErrorResponse));
+
+            var request = _fixture.Create<CreatePaymentRequest>();
+
+            var expected = new ProcessRejectedPaymentRequest
+            {
+                Source = new ProcessRejectedPaymentRequest.PaymentSource
+                {
+                    Cvv = request.Source.Cvv,
+                    CardExpiry = request.Source.CardExpiry,
+                    CardNumber = request.Source.CardNumber,
+                },
+                Recipient = new ProcessRejectedPaymentRequest.PaymentRecipient
+                {
+                    SortCode = request.Recipient.SortCode,
+                    AccountNumber = request.Recipient.AccountNumber
+                },
+                Currency = request.Currency,
+                Amount = request.Amount,
+                Merchant = new ProcessRejectedPaymentRequest.MerchantDetails
+                {
+                    Id = merchantId,
+                },
+                BankResponse = new ProcessRejectedPaymentRequest.BankPaymentResponse
+                {
+                    FailureReason = transferFundsErrorResponse.Code
+                }
+            };
+
+            //act
+            await _createPaymentHandler.Handle(request);
+
+            //assert
+            _mediator.Verify(x => x.Send(It.Is<ProcessRejectedPaymentRequest>(req => req.Should().BeEquivalentToBool(expected)), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Test]

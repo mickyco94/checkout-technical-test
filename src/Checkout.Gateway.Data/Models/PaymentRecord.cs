@@ -24,5 +24,6 @@ namespace Checkout.Gateway.Data.Models
         public string BankPaymentId { get; set; }
         public PaymentStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string FailureReason { get; set; }
     }
 }
