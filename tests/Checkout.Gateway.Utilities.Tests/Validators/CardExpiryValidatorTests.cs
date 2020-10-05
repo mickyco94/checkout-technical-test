@@ -102,6 +102,24 @@ namespace Checkout.Gateway.Utilities.Tests.Validators
         }
 
         [Test]
+        public void IsExpired_CurrentTimeIsBeforeMonthOfExpiration_ReturnsFalse()
+        {
+            //arrange
+            long RandomNegativeValue() => -(_fixture.Create<uint>());
+
+            var expiryDate = _fixture.Create<DateTime>();
+
+            var currentTime = new DateTime(expiryDate.Year, expiryDate.Month, 1).AddTicks(RandomNegativeValue());
+
+            _dateTime.Setup(x => x.UtcNow()).Returns(currentTime);
+
+            var expiryDateAsString = expiryDate.ToString("MM/yyyy");
+
+            //act, assert
+            _cardExpiryValidator.IsExpired(expiryDateAsString).Should().BeFalse();
+        }
+
+        [Test]
         public void IsExpired_CurrentTimeAfterActualExpiration_ReturnsTrue()
         {
             //arrange
