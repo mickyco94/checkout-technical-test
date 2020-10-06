@@ -1,7 +1,7 @@
 name: $(Version.Major).$(Version.Minor).$(Version.Patch)
 
 trigger:
-  - master
+  - main
 
 pool:
   vmImage: "ubuntu-latest"
