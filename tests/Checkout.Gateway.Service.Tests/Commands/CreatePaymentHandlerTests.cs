@@ -1,8 +1,7 @@
 ﻿using AutoFixture;
 using Checkout.Gateway.Data.Models;
 using Checkout.Gateway.Service.Commands.CreatePayment;
-using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
-using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
+using Checkout.Gateway.Service.Commands.ProcessCreatedPayment;
 using FluentAssertions;
 using FluentAssertions.Primitives;
 using MediatR;
@@ -23,12 +22,12 @@ namespace Checkout.Gateway.Service.Tests.Commands
         private MockRepository _mockRepository;
         private IFixture _fixture;
 
-        private Mock<ILogger<CreatePaymentHandler>> _logger;
+        private Mock<ILogger<PaymentCreatedHandler>> _logger;
         private Mock<IMockBankApiClient> _mockBankApiClient;
         private Mock<IMediator> _mediator;
         private Mock<IMerchantContext> _merchantContext;
 
-        private CreatePaymentHandler _createPaymentHandler;
+        private PaymentCreatedHandler _paymentCreatedHandler;
 
         [SetUp]
         public void SetUp()
@@ -38,7 +37,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
             _fixture = new Fixture();
 
             // Mock setup
-            _logger = _mockRepository.Create<ILogger<CreatePaymentHandler>>(MockBehavior.Loose);
+            _logger = _mockRepository.Create<ILogger<PaymentCreatedHandler>>(MockBehavior.Loose);
             _mockBankApiClient = _mockRepository.Create<IMockBankApiClient>();
             _mediator = _mockRepository.Create<IMediator>();
             _merchantContext = _mockRepository.Create<IMerchantContext>();
@@ -47,7 +46,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
             SetupMockDefaults();
 
             // Sut instantiation
-            _createPaymentHandler = new CreatePaymentHandler(
+            _paymentCreatedHandler = new PaymentCreatedHandler(
                 _logger.Object,
                 _mockBankApiClient.Object,
                 _mediator.Object,
@@ -88,7 +87,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
                 .ReturnsAsync(TransferFundsResponse.Successful(_fixture.Create<TransferFundsSuccessfulResponse>()));
 
             //act
-            var res = await _createPaymentHandler.Handle(_fixture.Create<CreatePaymentRequest>());
+            var res = await _paymentCreatedHandler.Handle(_fixture.Create<CreatePaymentRequest>());
 
             //assert
             res.StatusCode.Should().Be(StatusCodes.Status201Created);
@@ -138,7 +137,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
             };
 
             //act
-            await _createPaymentHandler.Handle(request);
+            await _paymentCreatedHandler.Handle(request);
 
             //assert
             _mediator.Verify(x => x.Send(It.Is<ProcessSuccessfulPaymentRequest>(req => req.Should().BeEquivalentToBool(expected)), It.IsAny<CancellationToken>()), Times.Once);
@@ -159,7 +158,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
                 .ReturnsAsync(TransferFundsResponse.Error(422, _fixture.Create<TransferFundsErrorResponse>()));
 
             //act
-            var res = await _createPaymentHandler.Handle(_fixture.Create<CreatePaymentRequest>());
+            var res = await _paymentCreatedHandler.Handle(_fixture.Create<CreatePaymentRequest>());
 
             //assert
             res.StatusCode.Should().Be(StatusCodes.Status201Created);
@@ -209,7 +208,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
             };
 
             //act
-            await _createPaymentHandler.Handle(request);
+            await _paymentCreatedHandler.Handle(request);
 
             //assert
             _mediator.Verify(x => x.Send(It.Is<ProcessRejectedPaymentRequest>(req => req.Should().BeEquivalentToBool(expected)), It.IsAny<CancellationToken>()), Times.Once);
@@ -226,7 +225,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
                 .ReturnsAsync(transferFundsResponse);
 
             //act
-            var res = await _createPaymentHandler.Handle(_fixture.Create<CreatePaymentRequest>());
+            var res = await _paymentCreatedHandler.Handle(_fixture.Create<CreatePaymentRequest>());
 
             //assert
             res.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
@@ -256,7 +255,7 @@ namespace Checkout.Gateway.Service.Tests.Commands
             };
 
             //act
-            await _createPaymentHandler.Handle(createPaymentRequest);
+            await _paymentCreatedHandler.Handle(createPaymentRequest);
 
             //assert
             _mockBankApiClient.Verify(x => x.TransferFunds(It.Is<TransferFundsRequest>(req => req.Should().BeEquivalentToBool(expected))), Times.Once);

@@ -20,12 +20,12 @@ namespace Checkout.Gateway.Service.Commands.ProcessRejectedPayment
             _paymentRecordReader = paymentRecordReader;
         }
 
-        public Task Handle(PaymentRejectedEvent @event, CancellationToken cancellationToken = default)
+        public Task Handle(PaymentRejectedEvent paymentRejectedEvent, CancellationToken cancellationToken = default)
         {
-            var paymentRecord = _paymentRecordReader.PaymentRecords.First(x => x.Id == @event.Id);
+            var paymentRecord = _paymentRecordReader.PaymentRecords.First(x => x.Id == paymentRejectedEvent.Id);
 
             paymentRecord.Status = PaymentStatus.Succeeded;
-            paymentRecord.FailureReason = @event.BankResponse.FailureReason;
+            paymentRecord.FailureReason = paymentRejectedEvent.BankResponse.FailureReason;
 
             _paymentRecordUpdater.Update(paymentRecord);
 

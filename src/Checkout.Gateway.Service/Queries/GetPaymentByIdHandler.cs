@@ -35,7 +35,7 @@ namespace Checkout.Gateway.Service.Queries
 
             var paymentRecord = _paymentRecordReader
                 .PaymentRecords
-                .Where(record => record.MerchantId == _merchantContext.GetMerchantId())
+                .Where(record => record.MerchantId == merchantId)
                 .Where(record => record.Id == request.Id)
                 .Select(b => new
                 {

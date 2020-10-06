@@ -1,13 +1,12 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-using Checkout.Gateway.Service.Commands.CreatePayment;
-using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
+﻿using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
 using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using MockBank.API.Client;
 using MockBank.API.Client.Models;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Checkout.Gateway.Service.Commands.ProcessCreatedPayment
 {
@@ -25,6 +24,24 @@ namespace Checkout.Gateway.Service.Commands.ProcessCreatedPayment
             _logger = logger;
             _mockBankApiClient = mockBankApiClient;
             _mediator = mediator;
+        }
+
+        public async Task Handle(PaymentCreatedEvent paymentCreatedEvent, CancellationToken cancellationToken)
+        {
+            var mockBankResponse = await TransferFundsRequestToBank(paymentCreatedEvent);
+
+            switch (mockBankResponse.StatusCode)
+            {
+                case StatusCodes.Status200OK:
+                    await HandlePaymentSuccessful(paymentCreatedEvent.Id, mockBankResponse.SuccessResponse);
+                    break;
+                case StatusCodes.Status422UnprocessableEntity:
+                    await HandlePaymentRejected(paymentCreatedEvent.Id, mockBankResponse.ErrorResponse);
+                    break;
+                default:
+                    HandleUnknownBankResponse(mockBankResponse);
+                    break;
+            }
         }
 
         private async Task<TransferFundsResponse> TransferFundsRequestToBank(PaymentCreatedEvent request)
@@ -75,24 +92,6 @@ namespace Checkout.Gateway.Service.Commands.ProcessCreatedPayment
                     TransactionId = bankResponse.Id.ToString()
                 },
             });
-        }
-
-        public async Task Handle(PaymentCreatedEvent notification, CancellationToken cancellationToken)
-        {
-            var mockBankResponse = await TransferFundsRequestToBank(notification);
-
-            switch (mockBankResponse.StatusCode)
-            {
-                case StatusCodes.Status200OK:
-                    await HandlePaymentSuccessful(notification.Id, mockBankResponse.SuccessResponse);
-                    break;
-                case StatusCodes.Status422UnprocessableEntity:
-                    await HandlePaymentRejected(notification.Id, mockBankResponse.ErrorResponse);
-                    break;
-                default:
-                    HandleUnknownBankResponse(mockBankResponse);
-                    break;
-            }
         }
     }
 }

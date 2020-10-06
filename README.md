@@ -1,3 +1,19 @@
+## Async Branch
+
+This branch demonstrates an asynchronous flow for processing payments.
+
+A payment is first created in a pending state, other services are then notified of this and process the payment in the background. Updating the status of the payment when appropriate.
+
+I'm using Mediator's Publish functionality here as a substitute for an event broker. In a real production application I would use something like RabbitMQ, Azure Service Bus etc. and publish the events to that instead of Mediatr.
+
+Using events here allows Merchant's to receive quick responses while the payment is processed in the background. They can then query the state of the payment or better yet be notified via webhook (we could add an event handler for the `PaymentCreatedEvent` and `PaymentRejectedEvent`). Being able to distribute the concerns via events allows individual processes to work without needing to deal with distributed transactions (see: Edge cases section below). It also allows for more scalability as individual workers can process these events.
+
+Events also allow us to perform retries that can help mitigate transient errors without adding to response times to a client using the Gateway API.
+
+Events also act as a log. So if any individual handler fails the source can be traced and the messages replayed once the issue is resolved.
+
+(NOTE: This branch does not have updated tests due to time)
+
 ## Assumptions
 
 - Bank API requires an account for the funds to be paid into
@@ -8,10 +24,10 @@
 ## Improvements
 
 - Everything currently in the `Checkout.Gateway.Utilities` project could be moved out into a set of internal nuget packages. The functionality in this project is not specific to the domain of the Gateway so would be useful for other parts of the system.
-- Currently using a mock document DB. In a real production app this would be substituted for on a NoSQL database. For the purposes of demonstration the mock document DB is sufficient.
-- The Authentication implementation is very basic here, as alluded to a comment in the codebase. A few considerations for Auth implementations are usually safe signing of keys, ability to revoke a keys access, storing of the signing secret in a keyvault etc. I can go into more detail on this area if you would like.
-- The encryption I left as a stub for now without any implementation, usually I would use RSA encryption with a different key per merchant. Similar to Auth, the safe storage and retrieval of this key is the important part
-- Currently the error responses differ slightly if the failure occurred with in the validator compared to a failure within the handler. I tried overriding the output response of FluentValidation but didn't feel like a good use of the limited time I have for this tech test. Usually I would use an internal library I developed here at PushDr that does allow you to shape the response.
+- Currently using a mock document DB. In a real production app this would be substituted for a NoSQL database.
+- The Authentication implementation is very basic here, as alluded to by a comment in the codebase. A few considerations for Auth implementations are usually safe signing of keys, ability to revoke a keys access, storing of the signing secret in a keyvault etc. I can go into more detail on this area if you would like.
+- The encryption is left as a stub for now without any implementation, usually I would use RSA encryption with a different key per merchant. Similary to auth, encryption is a large area of the system with a consistent pattern established across all services.
+- Currently the error responses differ slightly if the failure occurred with in the validator compared to a failure within the handler. I tried overriding the output response of FluentValidation but after an hour of failed attempts I didn't feel like a good use of the limited time I have for this tech test. Usually I would use an internal library I developed here at PushDr that I am more comfortable using.
 - Currently the idempotency filter determines whether or not a handler was successful based on the status code that is returned. I think something more reliable like a generic HandlerResponse that is propagated through the context would be better as the StatusCode feels like a flakey source of truth that could open the service up to bugs if a developer working on the handler doesn't have intimate knowledge of the idempotency logic.
 - Postman tests could be added so developers can quickly and easily verify changes are non breaking. Ideally these would run in a CI pipeline after deployment to test environment.
 - Mock Bank API currently has a few cards that can be used for testing scenarios defined as constants. It would be better if these values were configurable.
