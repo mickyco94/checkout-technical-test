@@ -1,16 +1,14 @@
 ﻿using MediatR;
 
-namespace Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment
+namespace Checkout.Gateway.Service.Commands.ProcessCreatedPayment
 {
-    public class ProcessSuccessfulPaymentRequest : IRequest<ProcessSuccessfulPaymentResponse>
+    public class PaymentCreatedEvent : INotification
     {
+        public string Id { get; set; }
         public PaymentSource Source { get; set; }
         public PaymentRecipient Recipient { get; set; }
         public decimal Amount { get; set; }
         public string Currency { get; set; }
-        public BankPaymentResponse BankResponse { get; set; }
-
-        public MerchantDetails Merchant { get; set; }
 
         public class PaymentSource
         {
@@ -23,17 +21,6 @@ namespace Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment
         {
             public string AccountNumber { get; set; }
             public string SortCode { get; set; }
-        }
-
-
-        public class BankPaymentResponse
-        {
-            public string TransactionId { get; set; }
-        }
-
-        public class MerchantDetails
-        {
-            public string Id { get; set; }
         }
     }
 }

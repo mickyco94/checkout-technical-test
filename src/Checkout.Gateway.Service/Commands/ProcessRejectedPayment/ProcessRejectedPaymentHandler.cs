@@ -1,67 +1,35 @@
 ﻿using Checkout.Gateway.Data.Abstractions;
 using Checkout.Gateway.Data.Models;
-using Checkout.Gateway.Utilities;
-using Checkout.Gateway.Utilities.Encryption;
 using MediatR;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Checkout.Gateway.Service.Commands.ProcessRejectedPayment
 {
-    public class ProcessRejectedPaymentHandler : IRequestHandler<ProcessRejectedPaymentRequest, ProcessRejectedPaymentResponse>
+    public class ProcessRejectedPaymentHandler : INotificationHandler<PaymentRejectedEvent>
     {
-        private readonly IMerchantEncryptionKeyGetter _merchantEncryptionKeyGetter;
-        private readonly IEncrypter _encrypter;
-        private readonly IPaymentRecordCreator _paymentRecordCreator;
-        private readonly IGuid _guid;
-        private readonly IDateTime _dateTime;
+        private readonly IPaymentRecordUpdater _paymentRecordUpdater;
+        private readonly IPaymentRecordReader _paymentRecordReader;
 
         public ProcessRejectedPaymentHandler(
-            IEncrypter encrypter,
-            IPaymentRecordCreator paymentRecordCreator,
-            IGuid guid,
-            IDateTime dateTime,
-            IMerchantEncryptionKeyGetter merchantEncryptionKeyGetter)
+            IPaymentRecordUpdater paymentRecordUpdater,
+            IPaymentRecordReader paymentRecordReader)
         {
-            _encrypter = encrypter;
-            _paymentRecordCreator = paymentRecordCreator;
-            _guid = guid;
-            _dateTime = dateTime;
-            _merchantEncryptionKeyGetter = merchantEncryptionKeyGetter;
+            _paymentRecordUpdater = paymentRecordUpdater;
+            _paymentRecordReader = paymentRecordReader;
         }
 
-        public Task<ProcessRejectedPaymentResponse> Handle(ProcessRejectedPaymentRequest request, CancellationToken cancellationToken = default)
+        public Task Handle(PaymentRejectedEvent @event, CancellationToken cancellationToken = default)
         {
-            var merchantKey = _merchantEncryptionKeyGetter.Key(request.Merchant.Id);
+            var paymentRecord = _paymentRecordReader.PaymentRecords.First(x => x.Id == @event.Id);
 
-            var paymentRecord = new PaymentRecord
-            {
-                Id = _guid.NewGuid().ToString(),
-                Source = new PaymentRecord.PaymentSource
-                {
-                    CardExpiryEncrypted = _encrypter.EncryptUtf8(request.Source.CardExpiry, merchantKey),
-                    CardNumberEncrypted = _encrypter.EncryptUtf8(request.Source.CardNumber, merchantKey),
-                    CvvEncrypted = _encrypter.EncryptUtf8(request.Source.Cvv, merchantKey)
-                },
-                Recipient = new PaymentRecord.PaymentRecipient
-                {
-                    AccountNumberEncrypted = _encrypter.EncryptUtf8(request.Recipient.AccountNumber, merchantKey),
-                    SortCodeEncrypted = _encrypter.EncryptUtf8(request.Recipient.SortCode, merchantKey),
-                },
-                Currency = request.Currency,
-                Status = PaymentStatus.Rejected,
-                Amount = request.Amount,
-                CreatedAt = _dateTime.UtcNow(),
-                MerchantId = request.Merchant.Id,
-                FailureReason = request.BankResponse.FailureReason,
-            };
+            paymentRecord.Status = PaymentStatus.Succeeded;
+            paymentRecord.FailureReason = @event.BankResponse.FailureReason;
 
-            _paymentRecordCreator.Add(paymentRecord);
+            _paymentRecordUpdater.Update(paymentRecord);
 
-            return Task.FromResult(new ProcessRejectedPaymentResponse
-            {
-                Id = paymentRecord.Id
-            });
+            return Task.CompletedTask;
         }
     }
 }

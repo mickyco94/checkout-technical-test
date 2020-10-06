@@ -1,12 +1,10 @@
-﻿using Checkout.Gateway.Data.Models;
-using Checkout.Gateway.Service.Commands.ProcessRejectedPayment;
-using Checkout.Gateway.Service.Commands.ProcessSuccessfulPayment;
+﻿using Checkout.Gateway.Data.Abstractions;
+using Checkout.Gateway.Data.Models;
+using Checkout.Gateway.Service.Commands.ProcessCreatedPayment;
 using Checkout.Gateway.Utilities;
+using Checkout.Gateway.Utilities.Encryption;
 using MediatR;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using MockBank.API.Client;
-using MockBank.API.Client.Models;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,134 +12,81 @@ namespace Checkout.Gateway.Service.Commands.CreatePayment
 {
     public class CreatePaymentHandler : IRequestHandler<CreatePaymentRequest, ApiResponse<CreatePaymentResponse>>
     {
-        private readonly ILogger<CreatePaymentHandler> _logger;
-        private readonly IMockBankApiClient _mockBankApiClient;
-        private readonly IMediator _mediator;
+        private readonly IPaymentRecordCreator _paymentRecordCreator;
+        private readonly IGuid _guid;
+        private readonly IEncrypter _encrypter;
+        private readonly IMerchantEncryptionKeyGetter _merchantEncryptionKeyGetter;
         private readonly IMerchantContext _merchantContext;
+        private readonly IMediator _mediator;
+        private readonly IDateTime _dateTime;
 
-        public CreatePaymentHandler(
-            ILogger<CreatePaymentHandler> logger,
-            IMockBankApiClient mockBankApiClient,
+        public CreatePaymentHandler(IPaymentRecordCreator paymentRecordCreator,
+            IGuid guid,
+            IEncrypter encrypter,
+            IMerchantEncryptionKeyGetter merchantEncryptionKeyGetter,
+            IMerchantContext merchantContext,
             IMediator mediator,
-            IMerchantContext merchantContext)
+            IDateTime dateTime)
         {
-            _logger = logger;
-            _mockBankApiClient = mockBankApiClient;
-            _mediator = mediator;
+            _paymentRecordCreator = paymentRecordCreator;
+            _guid = guid;
+            _encrypter = encrypter;
+            _merchantEncryptionKeyGetter = merchantEncryptionKeyGetter;
             _merchantContext = merchantContext;
+            _mediator = mediator;
+            _dateTime = dateTime;
         }
 
-        public async Task<ApiResponse<CreatePaymentResponse>> Handle(
-            CreatePaymentRequest request,
-            CancellationToken cancellationToken = default)
+        public async Task<ApiResponse<CreatePaymentResponse>> Handle(CreatePaymentRequest request, CancellationToken cancellationToken)
         {
-            var mockBankResponse = await TransferFundsRequestToBank(request);
+            var merchantId = _merchantContext.GetMerchantId();
 
-            switch (mockBankResponse.StatusCode)
-            {
-                case StatusCodes.Status200OK:
-                    return await HandlePaymentSuccessful(request, mockBankResponse.SuccessResponse);
-                case StatusCodes.Status422UnprocessableEntity:
-                    return await HandlePaymentRejected(request, mockBankResponse.ErrorResponse);
-                default:
-                    return HandleUnknownBankResponse(mockBankResponse);
-            }
-        }
+            var merchantKey = _merchantEncryptionKeyGetter.Key(merchantId);
 
-        private async Task<TransferFundsResponse> TransferFundsRequestToBank(CreatePaymentRequest request)
-        {
-            return await _mockBankApiClient.TransferFunds(new TransferFundsRequest
+            var paymentRecord = new PaymentRecord
             {
+                Id = _guid.NewGuid().ToString(),
+                Source = new PaymentRecord.PaymentSource
+                {
+                    CardExpiryEncrypted = _encrypter.EncryptUtf8(request.Source.CardExpiry, merchantKey),
+                    CardNumberEncrypted = _encrypter.EncryptUtf8(request.Source.CardNumber, merchantKey),
+                    CvvEncrypted = _encrypter.EncryptUtf8(request.Source.Cvv, merchantKey)
+                },
+                Recipient = new PaymentRecord.PaymentRecipient
+                {
+                    AccountNumberEncrypted = _encrypter.EncryptUtf8(request.Recipient.AccountNumber, merchantKey),
+                    SortCodeEncrypted = _encrypter.EncryptUtf8(request.Recipient.SortCode, merchantKey),
+                },
                 Currency = request.Currency,
+                Status = PaymentStatus.Pending,
                 Amount = request.Amount,
-                Source = new TransferFundsRequest.PaymentSource
-                {
-                    Cvv = request.Source.Cvv,
-                    CardExpiry = request.Source.CardExpiry,
-                    CardNumber = request.Source.CardNumber,
-                },
-                Recipient = new TransferFundsRequest.PaymentRecipient
-                {
-                    SortCode = request.Recipient.SortCode,
-                    AccountNumber = request.Recipient.AccountNumber
-                }
-            });
-        }
+                CreatedAt = _dateTime.UtcNow(),
+                MerchantId = merchantId,
+            };
 
-        //MCO: Here we are assuming that the bank has it's own idempotency methods that will allow us to safely retry in the case of a timeout, internal server error etc.
-        private ApiResponse<CreatePaymentResponse> HandleUnknownBankResponse(TransferFundsResponse mockBankResponse)
-        {
-            _logger.LogCritical("Unknown response received from payment Response: {@mockBankResponse}", mockBankResponse);
+            _paymentRecordCreator.Add(paymentRecord);
 
-            return ApiResponse<CreatePaymentResponse>.Fail(StatusCodes.Status502BadGateway, "ERR_DEP_FAIL", "A dependency has failed, your payment has not been processed. Please try again");
-        }
-
-        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentRejected(CreatePaymentRequest request, TransferFundsErrorResponse bankErrorResponse)
-        {
-            var res = await _mediator.Send(new ProcessRejectedPaymentRequest
+            await _mediator.Publish(new PaymentCreatedEvent
             {
-                Source = new ProcessRejectedPaymentRequest.PaymentSource
+                Id = paymentRecord.Id,
+                Source = new PaymentCreatedEvent.PaymentSource
                 {
-                    Cvv = request.Source.Cvv,
                     CardExpiry = request.Source.CardExpiry,
                     CardNumber = request.Source.CardNumber,
+                    Cvv = request.Source.Cvv,
                 },
-                Recipient = new ProcessRejectedPaymentRequest.PaymentRecipient
+                Recipient = new PaymentCreatedEvent.PaymentRecipient
                 {
                     SortCode = request.Recipient.SortCode,
                     AccountNumber = request.Recipient.AccountNumber
                 },
-                Currency = request.Currency,
                 Amount = request.Amount,
-                Merchant = new ProcessRejectedPaymentRequest.MerchantDetails
-                {
-                    Id = _merchantContext.GetMerchantId(),
-                },
-                BankResponse = new ProcessRejectedPaymentRequest.BankPaymentResponse
-                {
-                    FailureReason = bankErrorResponse.Code
-                }
-            });
+                Currency = request.Currency
+            }, cancellationToken);
 
-            return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status201Created, new CreatePaymentResponse
+            return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status202Accepted, new CreatePaymentResponse
             {
-                Status = PaymentStatus.Rejected,
-                PaymentId = res.Id
-            });
-        }
-
-        private async Task<ApiResponse<CreatePaymentResponse>> HandlePaymentSuccessful(CreatePaymentRequest request,
-            TransferFundsSuccessfulResponse bankResponse)
-        {
-            var res = await _mediator.Send(new ProcessSuccessfulPaymentRequest
-            {
-                Source = new ProcessSuccessfulPaymentRequest.PaymentSource
-                {
-                    Cvv = request.Source.Cvv,
-                    CardExpiry = request.Source.CardExpiry,
-                    CardNumber = request.Source.CardNumber,
-                },
-                Recipient = new ProcessSuccessfulPaymentRequest.PaymentRecipient
-                {
-                    SortCode = request.Recipient.SortCode,
-                    AccountNumber = request.Recipient.AccountNumber
-                },
-                Currency = request.Currency,
-                Amount = request.Amount,
-                Merchant = new ProcessSuccessfulPaymentRequest.MerchantDetails
-                {
-                    Id = _merchantContext.GetMerchantId(),
-                },
-                BankResponse = new ProcessSuccessfulPaymentRequest.BankPaymentResponse
-                {
-                    TransactionId = bankResponse.Id.ToString()
-                }
-            });
-
-            return ApiResponse<CreatePaymentResponse>.Success(StatusCodes.Status201Created, new CreatePaymentResponse
-            {
-                Status = PaymentStatus.Succeeded,
-                PaymentId = res.Id
+                PaymentId = paymentRecord.Id
             });
         }
     }
