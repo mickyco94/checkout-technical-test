@@ -17,6 +17,11 @@ namespace Checkout.Gateway.Service
 
             services.AddScoped<IMerchantContext, MerchantContext>();
 
+            services.AddSingleton<IEncrypter, MockEncryption>();
+            services.AddSingleton<IDecrypter, MockEncryption>();
+
+            services.AddScoped<IMerchantEncryptionKeyGetter, MerchantEncryptionKeyGetter>();
+
             return services;
         }
     }

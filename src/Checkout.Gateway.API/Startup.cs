@@ -3,6 +3,7 @@ using Checkout.Gateway.Data.Configuration;
 using Checkout.Gateway.Service;
 using Checkout.Gateway.Service.Commands.CreatePayment;
 using Checkout.Gateway.Utilities;
+using Checkout.Gateway.Utilities.Encryption;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
@@ -51,6 +52,14 @@ namespace Checkout.Gateway.API
                 {
                     {"test_key", "amazon"}
                 });
+
+            services.Configure<MerchantEncryptionKeys>(cfg =>
+            {
+                cfg.Values = new Dictionary<string, byte[]>
+                {
+                    { "amazon", new byte[]{ 0x11, 0x22 , 0x33, 0x44, 0x55, 0x66, 0x77, 0x88} }
+                };
+            });
 
             services.AddAuthorization();
 

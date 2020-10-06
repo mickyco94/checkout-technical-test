@@ -3,6 +3,7 @@ using Checkout.Gateway.Data.Abstractions;
 using Checkout.Gateway.Data.Models;
 using Checkout.Gateway.Service.Queries;
 using Checkout.Gateway.Utilities;
+using Checkout.Gateway.Utilities.Encryption;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Moq;
@@ -21,6 +22,8 @@ namespace Checkout.Gateway.Service.Tests.Queries
 
         private Mock<IPaymentRecordReader> _paymentRecordReader;
         private Mock<IMerchantContext> _merchantContext;
+        private Mock<IMerchantEncryptionKeyGetter> _merchantEncryptionKeyGetter;
+        private Mock<IDecrypter> _decrypter;
 
         private GetPaymentByIdHandler _getPaymentByIdHandler;
 
@@ -35,12 +38,16 @@ namespace Checkout.Gateway.Service.Tests.Queries
             // Mock setup
             _paymentRecordReader = _mockRepository.Create<IPaymentRecordReader>();
             _merchantContext = _mockRepository.Create<IMerchantContext>();
+            _merchantEncryptionKeyGetter = _mockRepository.Create<IMerchantEncryptionKeyGetter>();
+            _decrypter = _mockRepository.Create<IDecrypter>();
 
             // Mock default
             SetupMockDefaults();
 
             // Sut instantiation
             _getPaymentByIdHandler = new GetPaymentByIdHandler(
+                _merchantEncryptionKeyGetter.Object,
+                _decrypter.Object,
                 _paymentRecordReader.Object,
                 _merchantContext.Object
             );
@@ -55,6 +62,14 @@ namespace Checkout.Gateway.Service.Tests.Queries
             _paymentRecordReader
                 .Setup(x => x.PaymentRecords)
                 .Returns(new List<PaymentRecord>().AsQueryable());
+
+            _merchantEncryptionKeyGetter
+                .Setup(x => x.Key(It.IsAny<string>()))
+                .Returns(_fixture.Create<byte[]>());
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(It.IsAny<string>(), It.IsAny<byte[]>()))
+                .Returns(_fixture.Create<string>());
         }
 
         [Test]
@@ -127,19 +142,46 @@ namespace Checkout.Gateway.Service.Tests.Queries
                 Id = paymentRecord.Id
             };
 
+            var decryptedCvv = _fixture.Create<string>();
+            var decryptedCardNumber = _fixture.Create<string>();
+            var decryptedCardExpiry = _fixture.Create<string>();
+
+            var decryptedSortCode = _fixture.Create<string>();
+            var decryptedAccountNumber = _fixture.Create<string>();
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(paymentRecord.Source.CvvEncrypted, It.IsAny<byte[]>()))
+                .Returns(decryptedCvv);
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(paymentRecord.Source.CardNumberEncrypted, It.IsAny<byte[]>()))
+                .Returns(decryptedCardNumber);
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(paymentRecord.Source.CardExpiryEncrypted, It.IsAny<byte[]>()))
+                .Returns(decryptedCardExpiry);
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(paymentRecord.Recipient.AccountNumberEncrypted, It.IsAny<byte[]>()))
+                .Returns(decryptedAccountNumber);
+
+            _decrypter
+                .Setup(x => x.DecryptUtf8(paymentRecord.Recipient.SortCodeEncrypted, It.IsAny<byte[]>()))
+                .Returns(decryptedSortCode);
+
             var expected = new GetPaymentByIdResponse
             {
                 Id = paymentRecord.Id,
                 Source = new GetPaymentByIdResponse.PaymentSource
                 {
-                    Cvv = paymentRecord.Source.CvvEncrypted.Mask(3, 0),
-                    CardExpiry = paymentRecord.Source.CardExpiryEncrypted,
-                    CardNumber = paymentRecord.Source.CardNumberEncrypted.Mask(12),
+                    Cvv = decryptedCvv.Mask(3),
+                    CardExpiry = decryptedCardExpiry,
+                    CardNumber = decryptedCardNumber.Mask(12),
                 },
                 Recipient = new GetPaymentByIdResponse.PaymentRecipient
                 {
-                    SortCode = paymentRecord.Recipient.SortCodeEncrypted.Mask(4),
-                    AccountNumber = paymentRecord.Recipient.AccountNumberEncrypted.Mask(6, 0)
+                    SortCode = decryptedSortCode.Mask(4),
+                    AccountNumber = decryptedAccountNumber.Mask(6, 0)
                 },
                 Details = string.IsNullOrEmpty(paymentRecord.FailureReason)
                     ? null
@@ -159,6 +201,43 @@ namespace Checkout.Gateway.Service.Tests.Queries
             //assert
             res.SuccessResponse.Should().BeEquivalentTo(expected);
             res.StatusCode.Should().Be(StatusCodes.Status200OK);
+        }
+
+        [Test]
+        public async Task Handle_DecryptsUserDataUsingMerchantKey()
+        {
+            //arrange
+            var paymentRecord = _fixture.Create<PaymentRecord>();
+
+            var paymentRecords = new List<PaymentRecord>
+            {
+                paymentRecord
+            };
+
+            _merchantContext
+                .Setup(x => x.GetMerchantId())
+                .Returns(paymentRecord.MerchantId);
+
+            _paymentRecordReader
+                .Setup(x => x.PaymentRecords)
+                .Returns(paymentRecords.AsQueryable);
+
+            var key = _fixture.Create<byte[]>();
+
+            _merchantEncryptionKeyGetter.Setup(x => x.Key(It.IsAny<string>())).Returns(key);
+
+            //act
+            await _getPaymentByIdHandler.Handle(new GetPaymentByIdRequest
+            {
+                Id = paymentRecord.Id
+            });
+
+            //assert
+            _decrypter.Verify(x => x.DecryptUtf8(paymentRecord.Source.CvvEncrypted, key), Times.Once);
+            _decrypter.Verify(x => x.DecryptUtf8(paymentRecord.Source.CardNumberEncrypted, key), Times.Once);
+            _decrypter.Verify(x => x.DecryptUtf8(paymentRecord.Source.CardExpiryEncrypted, key), Times.Once);
+            _decrypter.Verify(x => x.DecryptUtf8(paymentRecord.Recipient.SortCodeEncrypted, key), Times.Once);
+            _decrypter.Verify(x => x.DecryptUtf8(paymentRecord.Recipient.AccountNumberEncrypted, key), Times.Once);
         }
     }
 }
