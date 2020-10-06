@@ -16,7 +16,7 @@ steps:
     displayName: "build gateway image"
     inputs:
       command: "build"
-      Dockerfile: "src/Checkout.Gateway.API/Dockerfile"
+      Dockerfile: "Dockerfile.Gateway"
       tags: |
         $(Build.BuildNumber)
         $(Build.SourceBranchName)
@@ -25,7 +25,7 @@ steps:
     displayName: "build mock api image"
     inputs:
       command: "build"
-      Dockerfile: "tools/MockBank.API/Dockerfile"
+      Dockerfile: "Dockerfile.MockBank"
       tags: |
         $(Build.BuildNumber)
         $(Build.SourceBranchName)
