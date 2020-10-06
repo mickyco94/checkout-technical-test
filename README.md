@@ -1,3 +1,7 @@
+# Payment Gateway
+
+[![Build Status](https://dev.azure.com/mickyclerkinoliver/Checkout%20Tech%20Test/_apis/build/status/mickyco94.-checkout-technical-test?branchName=main)](https://dev.azure.com/mickyclerkinoliver/Checkout%20Tech%20Test/_build/latest?definitionId=5&branchName=main)
+
 ## Assumptions
 
 - Bank API requires an account for the funds to be paid into
