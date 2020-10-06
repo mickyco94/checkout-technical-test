@@ -12,7 +12,7 @@ Events also allow us to perform retries that can help mitigate transient errors 
 
 Events also act as a log. So if any individual handler fails the source can be traced and the messages replayed once the issue is resolved.
 
-(NOTE: This branch does not have updated tests due to time)
+(NOTE: This branch does not have updated tests due to time constraints)
 
 ## Assumptions
 
