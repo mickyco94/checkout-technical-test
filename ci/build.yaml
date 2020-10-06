@@ -12,21 +12,26 @@ variables:
   Version.Patch: $[counter(variables['Version.Minor'], 0)]
 
 steps:
-  - task: Docker@2
-    displayName: "build gateway image"
-    inputs:
-      command: "build"
-      Dockerfile: "Dockerfile.Gateway"
-      tags: |
-        $(Build.BuildNumber)
-        $(Build.SourceBranchName)
-        $(Build.SourceBranchName)-$(Build.BuildNumber)
-  - task: Docker@2
-    displayName: "build mock api image"
-    inputs:
-      command: "build"
-      Dockerfile: "Dockerfile.MockBank"
-      tags: |
-        $(Build.BuildNumber)
-        $(Build.SourceBranchName)
-        $(Build.SourceBranchName)-$(Build.BuildNumber)
+- task: DotNetCoreCLI@2
+  displayName: 'run tests'
+  inputs:
+    command: 'test'
+    projects: '*.sln'
+- task: Docker@2
+  displayName: "build gateway image"
+  inputs:
+    command: "build"
+    Dockerfile: "Dockerfile.Gateway"
+    tags: |
+      $(Build.BuildNumber)
+      $(Build.SourceBranchName)
+      $(Build.SourceBranchName)-$(Build.BuildNumber)
+- task: Docker@2
+  displayName: "build mock api image"
+  inputs:
+    command: "build"
+    Dockerfile: "Dockerfile.MockBank"
+    tags: |
+      $(Build.BuildNumber)
+      $(Build.SourceBranchName)
+      $(Build.SourceBranchName)-$(Build.BuildNumber)
