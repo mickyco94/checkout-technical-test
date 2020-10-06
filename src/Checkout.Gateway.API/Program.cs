@@ -15,7 +15,11 @@ namespace Checkout.Gateway.API
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseSerilog();
+                    webBuilder.UseSerilog((ctx, cfg) =>
+                    {
+                        cfg.MinimumLevel.Debug();
+                        cfg.WriteTo.Console();
+                    });
                     webBuilder.UseStartup<Startup>();
                 });
     }
