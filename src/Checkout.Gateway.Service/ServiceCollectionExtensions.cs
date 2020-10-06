@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using Checkout.Gateway.Utilities.Encryption;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MockBank.API.Client;
